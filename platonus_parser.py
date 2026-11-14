@@ -139,41 +139,96 @@ def new_subject(name):
     }
 
 
-# Раскладки столбцов. Семестр: 9 + 6 недель. Триместр: 5 + 5 недель.
-# first = индексы в первой строке предмета, next = в остальных строках.
+def make_layout(n1, n2, title):
+    """Раскладка столбцов для n1 недель в первой половине и n2 во второй.
+
+    Первая строка предмета: недели, ТК1, ТК1 общ., РК1, Р1, недели, ТК2, ТК2 общ., РК2, Р2,
+    три столбца (курсовая, практика, исследовательская), рейтинг допуска, экзамен, итог %, буква.
+    Остальные строки предмета: недели, ТК1, недели, ТК2.
+    """
+    t2 = n1 + 4 + n2
+    return {
+        "title": title,
+        "n1": n1,
+        "n2": n2,
+        "first": dict(w1=(0, n1), tk1=n1, tk1t=n1 + 1, rk1=n1 + 2, r1=n1 + 3,
+                      w2=(n1 + 4, t2), tk2=t2, tk2t=t2 + 1, rk2=t2 + 2, r2=t2 + 3,
+                      rd=t2 + 7, exam=t2 + 8, pct=t2 + 9, letter=t2 + 10, size=t2 + 11),
+        "next": dict(w1=(0, n1), tk1=n1, w2=(n1 + 1, n1 + 1 + n2), tk2=n1 + 1 + n2,
+                     size=n1 + n2 + 2),
+    }
+
+
+# Стандартные раскладки. Другое деление недель (например 7 + 8) берём из заголовка таблицы.
 LAYOUTS = {
-    "semester": {
-        "title": "Семестр (15 недель)",
-        "first": dict(w1=(0, 9), tk1=9, tk1t=10, rk1=11, r1=12, w2=(13, 19), tk2=19,
-                      tk2t=20, rk2=21, r2=22, rd=26, exam=27, pct=28, letter=29, size=30),
-        "next": dict(w1=(0, 9), tk1=9, w2=(10, 16), tk2=16, size=17),
-    },
-    # ДОПУЩЕНИЕ: раскладка триместра взята из листа «Пример на триместр» Excel,
-    # реальный вид копии из Platonus нужно подтвердить на примере.
-    "trimester": {
-        "title": "Триместр (10 недель)",
-        "first": dict(w1=(0, 5), tk1=5, tk1t=6, rk1=7, r1=8, w2=(9, 14), tk2=14,
-                      tk2t=15, rk2=16, r2=17, rd=21, exam=22, pct=23, letter=24, size=25),
-        "next": dict(w1=(0, 5), tk1=5, w2=(6, 11), tk2=11, size=12),
-    },
+    "semester": make_layout(9, 6, "Семестр (15 недель)"),
+    "trimester": make_layout(5, 5, "Триместр (10 недель)"),
 }
+
+LAYOUT_RE = re.compile(r"^(\d+)\+(\d+)$")
+LATIN_TO_CYR = {ord("T"): "Т", ord("K"): "К", ord("P"): "Р"}
+
+
+def detect_header(raw_text):
+    """Ищет заголовок таблицы: по нему видно, сколько недель в каждой половине."""
+    for line in raw_text.splitlines():
+        cells = [c.strip() for c in line.split("\t")]
+        up = [c.upper().replace(" ", "").translate(LATIN_TO_CYR) for c in cells]
+        if "ТК1" in up and "ТК2" in up and "Р1" in up:
+            i_tk1, i_r1, i_tk2 = up.index("ТК1"), up.index("Р1"), up.index("ТК2")
+            n1 = sum(1 for c in cells[:i_tk1] if c.isdigit())
+            n2 = sum(1 for c in cells[i_r1 + 1:i_tk2] if c.isdigit())
+            if n1 >= 3 and n2 >= 3:
+                return n1, n2
+    return None
+
+
+def layout_for(n1, n2):
+    for name, lay in LAYOUTS.items():
+        if (lay["n1"], lay["n2"]) == (n1, n2):
+            return name, lay
+    return "custom", make_layout(n1, n2, f"{n1 + n2} недель: {n1} + {n2}")
+
+
+def candidate_splits():
+    """Типичные деления: сначала привычные, затем все остальные для 15 и 10 недель."""
+    first = [(9, 6), (5, 5), (7, 8)]
+    rest = [(n1, total - n1) for total in (15, 10) for n1 in range(3, total - 2)
+            if (n1, total - n1) not in first]
+    return first + rest
 
 
 def parse_platonus(raw_text, mode="auto"):
-    """mode: 'semester', 'trimester' или 'auto' (берём раскладку с меньшим числом замечаний)."""
+    """mode: 'semester', 'trimester', 'custom'/'auto' или 'n1+n2'.
+
+    1) если в тексте есть заголовок таблицы, раскладка берётся из него;
+    2) иначе явный режим;
+    3) иначе перебираем деления недель и берём то, где меньше всего замечаний.
+    """
+    header = detect_header(raw_text)
+    if header:
+        name, lay = layout_for(*header)
+        return parse_layout(raw_text, name, lay)
     if mode in LAYOUTS:
-        return parse_layout(raw_text, mode)
+        return parse_layout(raw_text, mode, LAYOUTS[mode])
+    m = LAYOUT_RE.match(mode or "")
+    if m:
+        name, lay = layout_for(int(m.group(1)), int(m.group(2)))
+        return parse_layout(raw_text, name, lay)
     best = None
-    for name in ("semester", "trimester"):
-        res = parse_layout(raw_text, name)
+    for n1, n2 in candidate_splits():
+        name, lay = layout_for(n1, n2)
+        res = parse_layout(raw_text, name, lay)
         bad = len(res["warnings"]) + sum(len(x["warnings"]) for x in res["subjects"])
         if best is None or bad < best[0]:
             best = (bad, res)
+        if bad == 0:
+            break
     return best[1]
 
 
-def parse_layout(raw_text, mode):
-    lay = LAYOUTS[mode]
+def parse_layout(raw_text, mode, lay=None):
+    lay = lay or LAYOUTS[mode]
     subjects = []
     warnings = []
     current = None

@@ -1,3 +1,5 @@
+import re
+
 from flask import Flask, g, jsonify, render_template, request
 
 from i18n import DEFAULT_LANG, LANGS, js_strings, translate
@@ -83,7 +85,7 @@ def api_status():
     data = request.get_json(silent=True) or {}
     raw = str(data.get("raw", ""))[:200000]
     mode = data.get("mode", "auto")
-    if mode not in ("auto", "semester", "trimester"):
+    if mode not in ("auto", "semester", "trimester", "custom") and not re.match(r"^\d+\+\d+$", str(mode)):
         mode = "auto"
     result = parse_platonus(raw, mode)
     cards = []

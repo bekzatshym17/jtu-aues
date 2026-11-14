@@ -17,7 +17,7 @@ import tempfile
 
 from PIL import Image, ImageOps
 
-from platonus_parser import LAYOUTS
+from platonus_parser import layout_for
 
 try:  # скриншоты и фото с iPhone иногда в формате HEIC
     import pillow_heif
@@ -362,49 +362,43 @@ def _verify(card, warnings):
 
 
 def build_text(subjects):
-    """Собирает текст в формате копии таблицы с компьютера. Возвращает (текст, режим)."""
-    lines = []
-    mode = "semester"
+    """Собирает текст в формате копии таблицы с компьютера (с заголовком, чтобы разбор знал деление недель).
+
+    Возвращает (текст, режим).
+    """
+    first_card = next(c for s in subjects for c in s["cards"] if c["w1"] is not None)
+    n1, n2 = len(first_card["w1"]), len(first_card["w2"] or [])
+    n2 = n2 or max(1, 15 - n1)
+    name, lay = layout_for(n1, n2)
+    F, N = lay["first"], lay["next"]
+
+    header = ["Дисциплина", "Учебный поток", "Преподаватель"]
+    header += [str(i) for i in range(1, n1 + 1)] + ["ТК1", "ТК1 ОБЩ.", "РК1", "Р1"]
+    header += [str(i) for i in range(n1 + 1, n1 + n2 + 1)] + ["ТК2", "ТК2 ОБЩ.", "РК2", "Р2"]
+    lines = ["\t".join(header)]
+
     for subject in subjects:
         for i, card in enumerate(subject["cards"]):
-            w1, w2 = card["w1"] or [], card["w2"] or []
-            if len(w1) <= 6:
-                mode = "trimester"
-            if mode == "semester":
-                first_size, next_size = 30, 17
-                p1_w1, p1_tk1, p1_w2, p1_tk2 = 0, 9, 13, 19
-                p2_w1, p2_tk1, p2_w2, p2_tk2 = 0, 9, 10, 16
-                n1, n2 = 9, 6
-            else:
-                first_size, next_size = 25, 12
-                p1_w1, p1_tk1, p1_w2, p1_tk2 = 0, 5, 9, 14
-                p2_w1, p2_tk1, p2_w2, p2_tk2 = 0, 5, 6, 11
-                n1, n2 = 5, 5
-            w1 = (w1 + [""] * n1)[:n1]
-            w2 = (w2 + [""] * n2)[:n2]
+            w1 = ((card["w1"] or []) + [""] * n1)[:n1]
+            w2 = ((card["w2"] or []) + [""] * n2)[:n2]
+            L = F if i == 0 else N
+            p = [""] * L["size"]
+            p[L["w1"][0]:L["w1"][1]] = w1
+            p[L["tk1"]] = card["tk1_fixed"]
+            p[L["w2"][0]:L["w2"][1]] = w2
+            p[L["tk2"]] = card["tk2_fixed"]
             if i == 0:
-                p = [""] * first_size
-                p[p1_w1:p1_w1 + n1] = w1
-                p[p1_tk1] = card["tk1_fixed"]
-                p[p1_w2:p1_w2 + n2] = w2
-                p[p1_tk2] = card["tk2_fixed"]
                 fin = subject.get("final")
                 if fin:
-                    L = LAYOUTS[mode]["first"]
                     for src, dst in (("tk1t", "tk1t"), ("rk1", "rk1"), ("r1", "r1"), ("tk2t", "tk2t"),
                                      ("rk2", "rk2"), ("r2", "r2"), ("rd", "rd"), ("exam", "exam"),
                                      ("total", "pct")):
                         p[L[dst]] = fin.get(src, "")
                 row = [subject["name"], card["stream"], card["teacher"]] + p
             else:
-                p = [""] * next_size
-                p[p2_w1:p2_w1 + n1] = w1
-                p[p2_tk1] = card["tk1_fixed"]
-                p[p2_w2:p2_w2 + n2] = w2
-                p[p2_tk2] = card["tk2_fixed"]
                 row = [card["stream"], card["teacher"]] + p
             lines.append("\t".join(row))
-    return "\n".join(lines), mode
+    return "\n".join(lines), name
 
 
 def _norm_name(name):
