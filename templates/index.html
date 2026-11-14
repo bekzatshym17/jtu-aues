@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <section class="hero-banner"
+             style="background-image: url('{{ url_for('static', filename='img/hero.jpg') }}');"></section>
+    <div class="hero-actions">
+        <a href="{{ url_for('analyze') }}" class="btn">{{ t('home.analyze') }}</a>
+        <a href="{{ url_for('help_page') }}" class="btn-ghost">{{ t('home.how') }}</a>
+    </div>
+
+    <section class="home-intro">
+        <h1>{{ t('home.h1') }}</h1>
+        <p>{{ t('home.p') }}</p>
+    </section>
+
+    <section class="tiles">
+        <a class="tile primary" href="{{ url_for('analyze') }}">
+            <h3>{{ t('tile.journal.h') }}</h3>
+            <p>{{ t('tile.journal.p') }}</p>
+        </a>
+        <a class="tile" href="{{ url_for('table') }}">
+            <h3>{{ t('tile.exam.h') }}</h3>
+            <p>{{ t('tile.exam.p') }}</p>
+        </a>
+        <a class="tile" href="{{ url_for('analyze') }}">
+            <h3>{{ t('tile.adm.h') }}</h3>
+            <p>{{ t('tile.adm.p') }}</p>
+        </a>
+        <a class="tile" href="{{ url_for('gpa') }}">
+            <h3>{{ t('tile.gpa.h') }}</h3>
+            <p>{{ t('tile.gpa.p') }}</p>
+        </a>
+        <a class="tile" href="{{ url_for('help_page') }}">
+            <h3>{{ t('tile.help.h') }}</h3>
+            <p>{{ t('tile.help.p') }}</p>
+        </a>
+        <div class="tile soon">
+            <h3>{{ t('tile.stip.h') }} <span class="soon-badge">{{ t('soon') }}</span></h3>
+            <p>{{ t('tile.stip.p') }}</p>
+        </div>
+    </section>
+{% endblock %}

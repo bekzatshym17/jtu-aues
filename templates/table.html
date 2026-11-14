@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ t('ex.title') }}{% endblock %}
+
+{% block content %}
+    <main class="page">
+        <h1>{{ t('ex.h1') }}</h1>
+        <p class="hint">{{ t('ex.p') }}</p>
+
+        <div class="table-wrap">
+            <table class="grades matrix">
+                <tr>
+                    <th>РД</th>
+                    {% for th in thresholds %}
+                    <th>{{ t('ex.th70') if th == 70 else th ~ "+" }}</th>
+                    {% endfor %}
+                </tr>
+                {% for r in rows %}
+                <tr>
+                    <td><b>{{ r.rd }}</b></td>
+                    {% for c in r.cells %}
+                    <td>{{ c.need if c.need is not none else "—" }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </main>
+{% endblock %}

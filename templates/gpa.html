@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ t('gpa.title') }}{% endblock %}
+
+{% block content %}
+    <main class="page">
+        <h1>{{ t('gpa.h1') }}</h1>
+        <p class="hint">{{ t('gpa.p') }}</p>
+
+        <div id="gpa-rows">
+            <div class="gpa-row head">
+                <div>{{ t('gpa.subject') }}</div><div>{{ t('gpa.credits') }}</div><div>{{ t('gpa.score') }}</div><div>{{ t('gpa.letter') }}</div><div>{{ t('gpa.points') }}</div><div></div>
+            </div>
+        </div>
+
+        <p style="margin-top:12px">
+            <button type="button" class="btn-small" id="gpa-add">{{ t('gpa.add') }}</button>
+        </p>
+
+        <div class="gpa-result" id="gpa-result">{{ t('gpa.empty') }}</div>
+    </main>
+
+    <script>
+    (function () {
+      var TXT = {{ {'subject': t('gpa.subject'), 'credits': t('gpa.credits'), 'avg': t('gpa.avg'), 'total': t('gpa.total'), 'empty': t('gpa.empty'), 'del': t('gpa.del')} | tojson }};
+      var SCALE = [[95, "A", 4.0], [90, "A-", 3.67], [85, "B+", 3.33], [80, "B", 3.0],
+                   [75, "B-", 2.67], [70, "C+", 2.33], [65, "C", 2.0], [60, "C-", 1.67],
+                   [55, "D+", 1.33], [50, "D", 1.0], [25, "FX", 0.5], [0, "F", 0.0]];
+      var rowsEl = document.getElementById("gpa-rows");
+      var resultEl = document.getElementById("gpa-result");
+      var rows = [];
+
+      function toNum(v) {
+        var s = String(v).trim().replace(",", ".");
+        if (!/^\d+(\.\d+)?$/.test(s)) return null;
+        return parseFloat(s);
+      }
+
+      function scaleFor(score) {
+        var p = Math.floor(score + 0.5);
+        for (var i = 0; i < SCALE.length; i++) if (p >= SCALE[i][0]) return SCALE[i];
+        return SCALE[SCALE.length - 1];
+      }
+
+      function addRow() {
+        var el = document.createElement("div");
+        el.className = "gpa-row";
+        el.innerHTML =
+          '<input type="text" placeholder="' + TXT.subject + '">' +
+          '<input type="text" inputmode="decimal" placeholder="' + TXT.credits + '">' +
+          '<input type="text" inputmode="decimal" placeholder="0–100">' +
+          '<div class="out">—</div><div class="out">—</div>' +
+          '<button type="button" class="gpa-del" title="' + TXT.del + '">✕</button>';
+        var inputs = el.querySelectorAll("input");
+        var outs = el.querySelectorAll(".out");
+        var row = { el: el, credits: inputs[1], score: inputs[2], letter: outs[0], points: outs[1] };
+        inputs[1].addEventListener("input", update);
+        inputs[2].addEventListener("input", update);
+        el.querySelector(".gpa-del").addEventListener("click", function () {
+          rowsEl.removeChild(el);
+          rows.splice(rows.indexOf(row), 1);
+          update();
+        });
+        rows.push(row);
+        rowsEl.appendChild(el);
+      }
+
+      function update() {
+        var sumPts = 0, sumCr = 0, sumScore = 0;
+        rows.forEach(function (r) {
+          var cr = toNum(r.credits.value), sc = toNum(r.score.value);
+          if (sc !== null && sc <= 100) {
+            var s = scaleFor(sc);
+            r.letter.textContent = s[1];
+            r.points.textContent = s[2];
+            if (cr !== null && cr > 0) {
+              sumPts += s[2] * cr;
+              sumScore += sc * cr;
+              sumCr += cr;
+            }
+          } else {
+            r.letter.textContent = "—";
+            r.points.textContent = "—";
+          }
+        });
+        if (sumCr > 0) {
+          var gpa = Math.round((sumPts / sumCr) * 100) / 100;
+          var avg = Math.round((sumScore / sumCr) * 10) / 10;
+          resultEl.innerHTML = "GPA: <b>" + gpa.toFixed(2) + "</b><br>" + TXT.avg + ": " +
+            avg + "<br>" + TXT.total + ": " + sumCr;
+        } else {
+          resultEl.textContent = TXT.empty;
+        }
+      }
+
+      document.getElementById("gpa-add").addEventListener("click", addRow);
+      for (var i = 0; i < 6; i++) addRow();
+    })();
+    </script>
+{% endblock %}

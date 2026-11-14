@@ -1,0 +1,943 @@
+{% extends "base.html" %}
+{% block title %}{{ t('an.title') }}{% endblock %}
+{% block head %}<style>
+/* ===== Журнал: ведомость с зелёными клетками для будущих баллов ===== */
+
+/* Панель цели: прилипает к верху, пока листаете предметы */
+.goal-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 12px 0;
+    margin-bottom: 18px;
+    background: var(--paper);
+    border-bottom: 2px solid var(--wine);
+}
+
+.goal-label {
+    font-weight: 700;
+    color: var(--wine);
+}
+
+.goal-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    min-width: 46px;
+    padding: 7px 12px;
+    font: inherit;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.chip:hover {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.chip[aria-pressed="true"] {
+    background: var(--red);
+    border-color: var(--red);
+    color: #ffffff;
+}
+
+/* Предмет */
+.journal-block {
+    margin-bottom: 26px;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--wine);
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.journal-scroll {
+    overflow-x: auto;
+}
+
+table.journal {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    width: 100%;
+}
+
+table.journal th,
+table.journal td {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 6px 7px;
+    text-align: center;
+    white-space: nowrap;
+    background: var(--paper);
+}
+
+table.journal th {
+    background: var(--wash);
+    color: var(--wine);
+    font-weight: 700;
+    border-bottom: 2px solid var(--wine);
+}
+
+/* Название предмета остаётся на месте при прокрутке вправо */
+table.journal td.name {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    text-align: left;
+    white-space: normal;
+    min-width: 150px;
+    max-width: 190px;
+    font-weight: 700;
+    box-shadow: 2px 0 0 var(--line);
+}
+
+table.journal th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+}
+
+/* н.п.: штриховка, в расчёт не входит */
+table.journal td.gray {
+    color: #8d8a8c;
+    font-size: 11px;
+    background: repeating-linear-gradient(135deg, #f1eeef, #f1eeef 4px, #e7e3e4 4px, #e7e3e4 5px);
+}
+
+/* н (нет на занятии): равно нулю */
+table.journal td.abs {
+    background: var(--bad-bg);
+    color: var(--bad);
+    font-weight: 800;
+}
+
+/* Средние ТК и итоги */
+table.journal td.tk {
+    background: var(--warn-bg);
+    font-weight: 600;
+}
+
+table.journal td.rating {
+    background: var(--good-bg);
+    color: #0f4d33;
+    font-weight: 800;
+    font-size: 14px;
+}
+
+/* Клетки, куда вы вписываете свои баллы */
+table.journal td.edit {
+    padding: 0;
+    background: #f1fbf5;
+}
+
+table.journal td.edit input {
+    width: 52px;
+    padding: 8px 2px;
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    color: var(--good);
+    background: transparent;
+    border: none;
+    box-shadow: inset 0 0 0 1px #8fcfb0;
+}
+
+table.journal td.edit input:hover {
+    background: #e2f6ea;
+}
+
+table.journal td.edit input:focus {
+    outline: none;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px var(--red);
+}
+
+table.journal td.edit input.bad {
+    background: var(--bad-bg);
+    box-shadow: inset 0 0 0 2px var(--bad);
+}
+
+/* Итоги под таблицей */
+.journal-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--line);
+}
+
+.j-line {
+    padding: 10px 16px;
+    font-size: 14px;
+    line-height: 1.45;
+    border-left: 5px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.j-line.is-ok { border-left-color: var(--good); background: var(--good-bg); color: #0f4d33; }
+.j-line.is-warn { border-left-color: #d49a2a; background: #fffaf0; color: #5e3c02; }
+.j-line.is-bad { border-left-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.j-line.is-info { border-left-color: var(--wine); background: var(--paper); color: var(--ink); }
+
+/* Главный ответ: сколько баллов набирать */
+.j-line.is-need {
+    grid-column: 1 / -1;
+    border-left-color: var(--red);
+    background: var(--wash);
+    color: var(--ink);
+    font-size: 16px;
+}
+
+.j-num {
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--red);
+    padding: 0 2px;
+}
+
+@media (max-width: 760px) {
+    .journal-summary {
+        grid-template-columns: 1fr;
+    }
+    .goal-bar {
+        position: static;
+        gap: 6px 10px;
+    }
+    .goal-chips {
+        gap: 4px;
+    }
+    .chip {
+        min-width: 38px;
+        padding: 6px 6px;
+    }
+}
+
+.j-line.c-needs, .j-line.c-weeks { grid-column: 1 / -1; }
+
+/* Расчёт по видам занятий */
+.j-weeks {
+    list-style: none;
+    margin: 8px 0 0;
+}
+
+.j-weeks li {
+    padding: 4px 0;
+    border-top: 1px solid var(--line);
+}
+
+.j-weeks li.is-bad {
+    color: var(--bad);
+}
+
+.j-num-s {
+    font-size: 22px;
+    line-height: 1;
+    color: var(--red);
+    letter-spacing: -0.02em;
+    padding: 0 2px;
+}
+
+/* Подсказка у клетки: н.п. / н.я / очистить */
+.cell-pop {
+    position: fixed;
+    z-index: 50;
+    display: none;
+    gap: 4px;
+    padding: 5px;
+    background: var(--paper);
+    border: 1px solid var(--wine);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.pop-btn {
+    min-width: 44px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--wash);
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.pop-btn:hover { border-color: var(--red); color: var(--red); }
+.pop-abs { color: var(--bad); }
+.pop-clear { color: var(--muted); }
+
+/* Клетка, которую пометили н.п. или н.я */
+table.journal td.edit.is-np {
+    background: repeating-linear-gradient(135deg, #f1eeef, #f1eeef 4px, #e7e3e4 4px, #e7e3e4 5px);
+}
+table.journal td.edit.is-np input { color: #8d8a8c; box-shadow: none; font-size: 11px; }
+table.journal td.edit.is-abs { background: var(--bad-bg); }
+table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
+</style>{% endblock %}
+
+{% block content %}
+    <main class="page">
+        <h1>{{ t('an.h1') }}</h1>
+        <p class="hint">{{ t('an.hint') }}</p>
+        <p class="hint"><a href="{{ url_for('table') }}">{{ t('an.link') }}</a></p>
+
+        <form method="post" action="{{ url_for('analyze') }}">
+            <textarea name="raw_text" rows="10" placeholder="{{ t('an.placeholder') }}">{{ raw_text }}</textarea>
+
+            <label class="field">
+                {{ t('an.mode') }}
+                <select name="mode">
+                    <option value="auto" {{ "selected" if mode == "auto" }}>{{ t('an.mode.auto') }}</option>
+                    <option value="semester" {{ "selected" if mode == "semester" }}>{{ t('an.mode.semester') }}</option>
+                    <option value="trimester" {{ "selected" if mode == "trimester" }}>{{ t('an.mode.trimester') }}</option>
+                </select>
+            </label>
+
+            <label class="field">
+                {{ t('an.assumed') }}
+                <input type="text" name="assumed_r2" value="{{ assumed_raw }}" placeholder="{{ t('an.assumed.ph') }}">
+            </label>
+
+            <button type="submit" class="btn">{{ t('an.submit') }}</button>
+        </form>
+        <script>
+        // Вставили текст (Ctrl + V) в поле, и таблица строится сразу, без нажатия кнопки
+        (function () {
+            var ta = document.querySelector('textarea[name="raw_text"]');
+            if (!ta) return;
+            ta.addEventListener("paste", function () {
+                setTimeout(function () {
+                    if (ta.value.trim().length > 20) ta.form.submit();
+                }, 100);
+            });
+        })();
+        </script>
+
+        {% if result %}
+        {% set mode_name = t('an.mode.' ~ result.mode) %}
+        <section class="result">
+            <h2>{{ t('an.found', n=result.subjects | length, mode=mode_name) }}</h2>
+
+            {% if not result.subjects %}
+            <div class="warn">{{ t('an.none') }}</div>
+            {% elif result.ok %}
+            <div class="ok">{{ t('an.ok') }}</div>
+            {% endif %}
+
+            {% for w in result.warnings %}
+            <div class="warn">⚠ {{ w }}</div>
+            {% endfor %}
+
+            {% if result.subjects %}
+            <h2>{{ t('an.journal.h') }}</h2>
+            <p class="hint">{{ t('an.journal.p') }}</p>
+            <div id="journal" class="journal-wrap"></div>
+            <script id="payload" type="application/json">{{ payload | tojson }}</script>
+            <script id="i18n" type="application/json">{{ js_i18n | tojson }}</script>
+            <script>
+// Интерактивная таблица журнала. Формулы взяты из регламента вуза (см. calculator.py).
+(function () {
+  "use strict";
+
+  var dataEl = document.getElementById("payload");
+  var root = document.getElementById("journal");
+  if (!dataEl || !root) return;
+  var subjects = JSON.parse(dataEl.textContent);
+  var i18nEl = document.getElementById("i18n");
+  var T = i18nEl ? JSON.parse(i18nEl.textContent) : {};
+  // Подставляет {имя} из объекта vars в строку перевода
+  function tr(key, vars) {
+    var s = T[key] !== undefined ? T[key] : key;
+    if (vars) Object.keys(vars).forEach(function (k) { s = s.split("{" + k + "}").join(vars[k]); });
+    return s;
+  }
+
+  var NP = ["н.п.", "н.п", "нп"];
+  var ABS = ["н", "н.", "н.я", "н.я.", "ня"]; // НЯ = 0
+  var FULL = { L: 0.2, P: 0.3, LAB: 0.3, SRSP: 0.2 };
+  var TABLE = {
+    "L,LAB,P,SRSP": { L: 0.2, P: 0.3, LAB: 0.3, SRSP: 0.2 },
+    "L,P,SRSP": { L: 0.3, P: 0.5, SRSP: 0.2 },
+    "L,LAB,SRSP": { L: 0.3, LAB: 0.5, SRSP: 0.2 },
+    "P,SRSP": { P: 0.9, SRSP: 0.1 },
+    "L,SRSP": { L: 0.5, SRSP: 0.5 }
+  };
+  var SCALE = [[95, "A"], [90, "A-"], [85, "B+"], [80, "B"], [75, "B-"], [70, "C+"],
+    [65, "C"], [60, "C-"], [55, "D+"], [50, "D"], [25, "FX"], [0, "F"]];
+  var THRESHOLDS = [70, 75, 80, 85, 90, 95];
+  var targetRd = 70;   // желаемый рейтинг допуска
+  var updaters = [];   // функции пересчёта всех предметов
+
+  function weightsFor(types) {
+    var key = types.slice().sort().join(",");
+    if (TABLE[key]) return TABLE[key];
+    // Набор не описан в регламенте: пропорционально весам К1
+    var total = 0, w = {};
+    types.forEach(function (t) { total += FULL[t] || 0; });
+    types.forEach(function (t) { w[t] = total ? (FULL[t] || 0) / total : 0; });
+    return w;
+  }
+
+  function toNum(v) {
+    if (v === null || v === undefined) return null;
+    var s = String(v).trim().replace(",", ".");
+    if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
+    return parseFloat(s);
+  }
+
+  function kindOf(v) {
+    var s = String(v == null ? "" : v).trim(), l = s.toLowerCase();
+    if (s === "") return "empty";
+    if (NP.indexOf(l) >= 0) return "np";
+    if (ABS.indexOf(l) >= 0) return "abs";
+    return toNum(s) === null ? "bad" : "num";
+  }
+
+  // ТК = сумма оценок / число ячеек, где не стоит «н.п.». Пустая и «н» считаются нулём.
+  function avg(cells) {
+    var sum = 0, slots = 0;
+    cells.forEach(function (v) {
+      var k = kindOf(v);
+      if (k === "np") return;
+      slots++;
+      if (k === "num") sum += toNum(v);
+    });
+    return slots ? sum / slots : 0;
+  }
+
+  function hasZero(cells) {
+    return cells.some(function (v) {
+      var k = kindOf(v);
+      return k === "abs" || (k === "num" && toNum(v) === 0);
+    });
+  }
+
+  function fmt(x) {
+    if (x === null || x === undefined || isNaN(x)) return "—";
+    return String(Math.round(x * 100) / 100);
+  }
+
+  function letterFor(pct) {
+    var p = Math.floor(pct + 0.5);
+    for (var i = 0; i < SCALE.length; i++) if (p >= SCALE[i][0]) return SCALE[i][1];
+    return "F";
+  }
+
+  // Записывает текст в строку итогов и красит её по состоянию: ok, warn, bad, need
+  function setLine(node, state, text, big) {
+    node.className = node.className.replace(/\bis-\w+/g, "").trim() + " is-" + state;
+    if (big !== undefined) {
+      node.innerHTML = text.split("\u0001").join('<b class="j-num">').split("\u0002").join("</b>");
+    } else {
+      node.textContent = text;
+    }
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // Подсказка у клетки: н.п. (не предусмотрено), н.я (не явка = 0), очистить
+  var pop = null, popInput = null;
+  function getPop() {
+    if (pop) return pop;
+    pop = el("div", "cell-pop");
+    pop.setAttribute("role", "group");
+    [["н.п.", "np"], ["н.я", "abs"], ["✕", "clear"]].forEach(function (it) {
+      var b = el("button", "pop-btn pop-" + it[1], it[0]);
+      b.type = "button";
+      b.title = tr("pick." + it[1]);
+      // mousedown не даёт клетке потерять фокус раньше клика
+      b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      b.addEventListener("click", function () {
+        if (!popInput) return;
+        popInput.value = it[1] === "np" ? "н.п." : (it[1] === "abs" ? "н" : "");
+        popInput.dispatchEvent(new Event("input", { bubbles: true }));
+        hidePop();
+      });
+      pop.appendChild(b);
+    });
+    document.body.appendChild(pop);
+    return pop;
+  }
+  function showPop(input) {
+    var p = getPop();
+    popInput = input;
+    var r = input.getBoundingClientRect();
+    p.style.display = "flex";
+    var left = Math.max(4, Math.min(r.left + r.width / 2 - p.offsetWidth / 2, window.innerWidth - p.offsetWidth - 4));
+    p.style.left = left + "px";
+    p.style.top = (r.bottom + 4) + "px";
+  }
+  function hidePop() {
+    if (pop) pop.style.display = "none";
+    popInput = null;
+  }
+  // При прокрутке подсказка едет вместе с клеткой
+  function followPop() { if (popInput) showPop(popInput); }
+  window.addEventListener("scroll", followPop, true);
+  window.addEventListener("resize", followPop);
+
+  function inputCell(value, onChange) {
+    var td = el("td", "edit");
+    var input = el("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.value = value;
+    function paint() {
+      var kd = kindOf(input.value);
+      td.classList.toggle("is-np", kd === "np");
+      td.classList.toggle("is-abs", kd === "abs");
+      input.classList.toggle("bad", input.value.trim() !== "" && kd === "bad");
+    }
+    input.addEventListener("input", function () {
+      paint();
+      onChange(input.value);
+    });
+    input.addEventListener("focus", function () { showPop(input); });
+    input.addEventListener("blur", function () {
+      setTimeout(function () { if (popInput === input) hidePop(); }, 120);
+    });
+    input.addEventListener("keydown", function (e) { if (e.key === "Escape") hidePop(); });
+    paint();
+    td.appendChild(input);
+    return td;
+  }
+
+  function weekCell(orig, current, onChange) {
+    var k = kindOf(orig);
+    if (k === "np") return el("td", "gray", tr("np"));
+    if (k === "abs") return el("td", "abs", "н");
+    if (k === "empty") return inputCell(current, onChange);
+    return el("td", "", String(orig));
+  }
+
+  function build(sub) {
+    var st = {
+      comps: sub.components.map(function (c) {
+        return { type: c.type, w1: c.w1.slice(), w2: c.w2.slice() };
+      }),
+      rk1: sub.rk1 === null ? "" : String(sub.rk1),
+      rk2: sub.rk2 === null ? "" : String(sub.rk2),
+      exam: sub.exam === null ? "" : String(sub.exam)
+    };
+    var n = sub.components.length;
+    var refs = { tk1: [], tk2: [] };
+
+    var table = el("table", "journal");
+    var head = el("tr");
+    var titles = [tr("subject"), tr("stream"), tr("teacher")];
+    var len1 = sub.components[0].w1.length, len2 = sub.components[0].w2.length;
+    for (var i = 1; i <= len1; i++) titles.push(String(i));
+    titles.push(tr("tk1"), tr("tk1t"), tr("rk1"), tr("r1"));
+    for (i = len1 + 1; i <= len1 + len2; i++) titles.push(String(i));
+    titles.push(tr("tk2"), tr("tk2t"), tr("rk2"), tr("r2"), tr("rd"), tr("exam"), tr("io"), tr("letter"));
+    titles.forEach(function (t) { head.appendChild(el("th", "", t)); });
+    table.appendChild(head);
+
+    function span(td) { td.rowSpan = n; return td; }
+
+    sub.components.forEach(function (c, idx) {
+      var tr = el("tr");
+      var comp = st.comps[idx];
+      if (idx === 0) tr.appendChild(span(el("td", "name", sub.name)));
+      tr.appendChild(el("td", "", c.stream + " (" + c.type_name + ")"));
+      tr.appendChild(el("td", "", c.teacher));
+      c.w1.forEach(function (orig, j) {
+        tr.appendChild(weekCell(orig, comp.w1[j], function (v) { comp.w1[j] = v; update(); }));
+      });
+      var tk1 = el("td", "tk c-tk1"); refs.tk1.push(tk1); tr.appendChild(tk1);
+      if (idx === 0) {
+        refs.tk1tot = span(el("td", "tk c-tk1tot"));
+        tr.appendChild(refs.tk1tot);
+        if (sub.rk1 === null) {
+          var td1 = inputCell("", function (v) { st.rk1 = v; update(); });
+          tr.appendChild(span(td1));
+        } else {
+          tr.appendChild(span(el("td", "", String(sub.rk1))));
+        }
+        refs.r1 = span(el("td", "rating c-r1"));
+        tr.appendChild(refs.r1);
+      }
+      c.w2.forEach(function (orig, j) {
+        tr.appendChild(weekCell(orig, comp.w2[j], function (v) { comp.w2[j] = v; update(); }));
+      });
+      var tk2 = el("td", "tk c-tk2"); refs.tk2.push(tk2); tr.appendChild(tk2);
+      if (idx === 0) {
+        refs.tk2tot = span(el("td", "tk c-tk2tot"));
+        tr.appendChild(refs.tk2tot);
+        if (sub.rk2 === null) {
+          tr.appendChild(span(inputCell("", function (v) { st.rk2 = v; update(); })));
+        } else {
+          tr.appendChild(span(el("td", "", String(sub.rk2))));
+        }
+        refs.r2 = span(el("td", "rating c-r2"));
+        tr.appendChild(refs.r2);
+        refs.rd = span(el("td", "rating c-rd"));
+        tr.appendChild(refs.rd);
+        tr.appendChild(span(inputCell(sub.exam === null ? "" : String(sub.exam),
+          function (v) { st.exam = v; update(); })));
+        refs.io = span(el("td", "c-io"));
+        tr.appendChild(refs.io);
+        refs.letter = span(el("td", "c-letter"));
+        tr.appendChild(refs.letter);
+      }
+      table.appendChild(tr);
+    });
+
+    var wrap = el("div", "journal-block");
+    var scroll = el("div", "journal-scroll");
+    scroll.appendChild(table);
+    wrap.appendChild(scroll);
+
+    var summary = el("div", "journal-summary");
+    var admLine = el("div", "j-line c-adm");
+    var autoLine = el("div", "j-line c-auto");
+    var needs = el("div", "j-line c-needs");
+    var weeksLine = el("div", "j-line c-weeks");
+    summary.appendChild(weeksLine);
+    summary.appendChild(admLine);
+    summary.appendChild(autoLine);
+    summary.appendChild(needs);
+    wrap.appendChild(summary);
+
+    function update() {
+      var w = weightsFor(st.comps.map(function (c) { return c.type; }));
+      var t1 = 0, t2 = 0, anyZero = false;
+      st.comps.forEach(function (c, i) {
+        var a = avg(c.w1), b = avg(c.w2);
+        t1 += (w[c.type] || 0) * a;
+        t2 += (w[c.type] || 0) * b;
+        refs.tk1[i].textContent = fmt(a);
+        refs.tk2[i].textContent = fmt(b);
+        if (hasZero(c.w1) || hasZero(c.w2)) anyZero = true;
+      });
+      var rk1 = toNum(st.rk1), rk2 = toNum(st.rk2), ik = toNum(st.exam);
+      // Пока РК не выставлен, Р = 0 (так считает Platonus)
+      var r1 = rk1 === null ? null : 0.7 * t1 + 0.3 * rk1;
+      var r2 = rk2 === null ? null : 0.7 * t2 + 0.3 * rk2;
+      var rd = ((r1 || 0) + (r2 || 0)) / 2;
+
+      refs.tk1tot.textContent = fmt(t1);
+      refs.tk2tot.textContent = fmt(t2);
+      refs.r1.textContent = fmt(r1);
+      refs.r2.textContent = fmt(r2);
+      refs.rd.textContent = fmt(rd);
+
+
+      // Сколько нужно набрать в оставшихся (пустых) клетках второй половины, отдельно по видам занятий.
+      // Для вида X: остальные виды в пустых клетках получают свой текущий средний балл.
+      var info = st.comps.map(function (c) {
+        var n = 0, S = 0, k = 0, allS = 0, allN = 0;
+        c.w2.forEach(function (v) {
+          var kd = kindOf(v);
+          if (kd === "np") return;
+          n++;
+          if (kd === "num") S += toNum(v);
+          else if (kd === "empty") k++;
+        });
+        c.w1.concat(c.w2).forEach(function (v) {
+          if (kindOf(v) === "num") { allS += toNum(v); allN++; }
+        });
+        return { type: c.type, n: n, S: S, k: k, fill: allN ? allS / allN : 0, w: w[c.type] || 0 };
+      });
+      var rk2Used = rk2 !== null ? rk2 : rk1;
+      var freeTotal = info.reduce(function (s, x) { return s + x.k; }, 0);
+      weeksLine.innerHTML = "";
+      if (rk1 === null || rk2Used === null) {
+        setLine(weeksLine, "warn", tr("weeks.enter"));
+      } else if (freeTotal === 0) {
+        setLine(weeksLine, "warn", tr("weeks.none"));
+      } else {
+        var needR2w = 2 * targetRd - r1;
+        var needT2 = (needR2w - 0.3 * rk2Used) / 0.7;
+        var assumed = rk2 === null ? tr("weeks.assumed", { rk1: rk1 }) : "";
+        var list = el("ul", "j-weeks");
+        // Общий вариант: во всех видах занятий в пустых клетках одинаковый средний балл
+        var baseAll = 0, perAll = 0;
+        info.forEach(function (x) {
+          if (x.n > 0) { baseAll += x.w * x.S / x.n; perAll += x.w * x.k / x.n; }
+        });
+        var au = (needT2 - baseAll) / perAll;
+        var state, uni = el("li", "uni");
+        if (au <= 0) {
+          state = "ok";
+          uni.textContent = tr("weeks.uni.ok");
+        } else if (au > 100) {
+          state = "bad";
+          uni.textContent = tr("weeks.uni.no");
+        } else {
+          state = "need";
+          uni.innerHTML = tr("weeks.uni", { x: '<b class="j-num">' + Math.ceil(au - 1e-9) + "</b>" });
+        }
+        list.appendChild(uni);
+        // По каждому виду занятий отдельно: остальные виды остаются на своём текущем среднем
+        info.forEach(function (x, i) {
+          if (x.k === 0 || x.n === 0) return;
+          var others = 0;
+          info.forEach(function (y, m) {
+            if (m !== i && y.n > 0) others += y.w * (y.S + y.k * y.fill) / y.n;
+          });
+          var a = (needT2 - others - x.w * x.S / x.n) / (x.w * x.k / x.n);
+          var name = tr("type." + x.type);
+          var li = el("li", "");
+          if (a <= 0) {
+            li.textContent = tr("weeks.row.ok", { c: name, n: x.k });
+          } else if (a > 100) {
+            li.textContent = tr("weeks.row.no", { c: name, n: x.k });
+          } else {
+            li.innerHTML = tr("weeks.row", { c: name, n: x.k, x: '<b class="j-num-s">' + Math.ceil(a - 1e-9) + "</b>" });
+          }
+          list.appendChild(li);
+        });
+        setLine(weeksLine, state, tr("weeks.title", { t: targetRd }) + assumed);
+        weeksLine.appendChild(list);
+      }
+
+      // Допуск к экзамену (п. 8 регламента)
+      var admitted = null;
+      if (rk1 !== null && rk2 !== null) {
+        var problems = [];
+        if (rk1 === 0 || rk2 === 0) problems.push(tr("adm.zero"));
+        if ((rk1 + rk2) / 2 < 50) problems.push(tr("adm.avg"));
+        if (rd < 50) problems.push(tr("adm.rd"));
+        admitted = problems.length === 0;
+        setLine(admLine, admitted ? "ok" : "bad", admitted ? tr("adm.yes") : tr("adm.no", { p: problems.join(", ") }));
+      } else if (rk1 !== null) {
+        var needRk2 = Math.max(1, 100 - rk1);
+        var needR2 = Math.max(0, 100 - r1);
+        setLine(admLine, "warn", tr("adm.pend", { a: Math.ceil(needRk2 - 1e-9), b: Math.ceil(needR2 * 10 - 1e-9) / 10 }));
+      } else {
+        setLine(admLine, "warn", tr("adm.enter"));
+      }
+
+      // Автомат (пп. 8 и 9.2): нет 0 и «н», РК не меньше 50
+      var autoBad = anyZero || (rk1 !== null && rk1 < 50) || (rk2 !== null && rk2 < 50);
+      setLine(autoLine, autoBad ? "bad" : "warn", autoBad ? tr("auto.no") : tr("auto.yes"));
+
+      // Итог
+      if (ik !== null && admitted === true) {
+        var io = 0.6 * rd + 0.4 * ik;
+        refs.io.textContent = fmt(io);
+        refs.letter.textContent = letterFor(io);
+      } else {
+        refs.io.textContent = ik !== null && admitted === false ? tr("noadm") : "—";
+        refs.letter.textContent = "—";
+      }
+
+      // Сколько нужно на экзамене
+      if (rk2 !== null) {
+        var parts = THRESHOLDS.map(function (t) {
+          var need = Math.ceil(Math.round(((t - 0.6 * rd) / 0.4) * 1e6) / 1e6);
+          var label = t === 70 ? tr("stip") : t + "+";
+          return label + ": " + (need > 100 ? "—" : Math.max(0, need));
+        });
+        setLine(needs, "info", tr("needs", { p: parts.join(" · ") }));
+      } else {
+        setLine(needs, "warn", tr("needs.enter"));
+      }
+    }
+
+    updaters.push(update);
+    update();
+    return wrap;
+  }
+
+  // Выбор цели: какой рейтинг допуска нужен (кнопки)
+  var control = el("div", "goal-bar");
+  control.appendChild(el("span", "goal-label", tr("goal")));
+  var chips = el("div", "goal-chips");
+  chips.setAttribute("role", "group");
+  [50, 60, 70, 75, 80, 85, 90, 95].forEach(function (v) {
+    var b = el("button", "chip", String(v));
+    b.type = "button";
+    b.setAttribute("aria-pressed", v === targetRd ? "true" : "false");
+    b.addEventListener("click", function () {
+      targetRd = v;
+      Array.prototype.forEach.call(chips.children, function (c) {
+        c.setAttribute("aria-pressed", c === b ? "true" : "false");
+      });
+      updaters.forEach(function (fn) { fn(); });
+    });
+    chips.appendChild(b);
+  });
+  control.appendChild(chips);
+  root.appendChild(control);
+
+  subjects.forEach(function (sub) { root.appendChild(build(sub)); });
+})();
+
+            </script>
+
+            <div class="subject">
+                <h3>{{ t('an.adm.h') }}</h3>
+                <p class="hint">{{ t('an.adm.p') }}</p>
+                <div class="table-wrap">
+                    <table class="grades matrix">
+                        <tr>
+                            <th>{{ t('an.th.subject') }}</th><th>{{ t('an.th.adm') }}</th>
+                            <th>{{ t('an.th.rk2') }}</th><th>{{ t('an.th.tk2') }}</th><th>{{ t('an.th.auto') }}</th>
+                        </tr>
+                        {% for s in result.subjects %}
+                        {% set ar = s.calc.admission_req %}
+                        <tr>
+                            <td>{{ s.name }}</td>
+                            <td>
+                                {% set mark = {"yes": "✓", "possible": "◐", "no": "✗"}.get(ar.status, "—") %}
+                                {{ mark }} {{ ar.text if lang == 'ru' else t('adm.' ~ ar.status) }}
+                            </td>
+                            <td>{{ ar.need_rk2 if ar.need_rk2 is not none else "—" }}</td>
+                            <td>{{ ar.need_tk2 if ar.need_tk2 is not none else "—" }}</td>
+                            <td>{{ "✓" if s.calc.automat.status == "possible" else "✗" }}
+                                {{ s.calc.automat.text if lang == 'ru' else t('auto.' ~ s.calc.automat.status) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                <p class="meta">{{ t('an.auto.note') }}</p>
+            </div>
+
+            <div class="subject">
+                <h3>{{ t('an.exam.h') }}</h3>
+                <p class="hint">{{ t('an.exam.p') }}</p>
+                <div class="table-wrap">
+                    <table class="grades matrix">
+                        <tr>
+                            <th>{{ t('an.th.subject') }}</th><th>{{ t('an.th.rd') }}</th>
+                            <th>{{ t('an.th.stip') }}</th><th>75+</th><th>80+</th><th>85+</th><th>90+</th><th>95+</th>
+                        </tr>
+                        {% for s in result.subjects %}
+                        {% if s.calc.matrix %}
+                        <tr>
+                            <td>{{ s.name }}</td>
+                            <td><b>{{ s.calc.rd_rounded }}</b></td>
+                            {% for cell in s.calc.matrix %}
+                            <td>{{ cell.need if cell.need is not none else "—" }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% for s in result.subjects %}
+            {% set c = s.calc %}
+            <div class="subject">
+                <div class="subject-head">
+                    <div>
+                        <h3>{{ s.name }}</h3>
+                        <div class="meta">
+                            {{ t('an.final') }}: {{ s.letter or "—" }}
+                            ({{ s.final_percent if s.final_percent is not none else "—" }}%)
+                        </div>
+                    </div>
+                    {% if s.warnings %}
+                    <span class="badge bad">{{ t('an.check') }}</span>
+                    {% else %}
+                    <span class="badge good">{{ t('an.checked') }}</span>
+                    {% endif %}
+                </div>
+
+                {% for w in s.warnings %}
+                <div class="warn">⚠ {{ w }}</div>
+                {% endfor %}
+
+                <div class="table-wrap">
+                    <table class="grades">
+                        <tr>
+                            <th>{{ t('an.th.type') }}</th>
+                            <th>{{ t('an.th.teacher') }}</th>
+                            <th>{{ t('an.th.grades') }}</th>
+                            <th>{{ t('j.tk1') }}</th>
+                            <th>{{ t('j.tk2') }}</th>
+                        </tr>
+                        {% for comp in s.components %}
+                        <tr>
+                            <td>{{ comp.type_name }}</td>
+                            <td>{{ comp.teacher }}</td>
+                            <td>{{ comp.grades | join(", ") if comp.grades else "—" }}</td>
+                            <td>{{ comp.tk1 if comp.tk1 is not none else "—" }}</td>
+                            <td>{{ comp.tk2 if comp.tk2 is not none else "—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+
+                {% set stats = [
+                    ("stat.tk1", s.tk1_total), ("stat.rk1", s.rk1), ("stat.r1", s.r1),
+                    ("stat.tk2", s.tk2_total), ("stat.rk2", s.rk2), ("stat.r2", s.r2),
+                    ("stat.rd", s.admission), ("stat.ik", s.exam)
+                ] %}
+                <div class="stats">
+                    {% for label, value in stats %}
+                    <div class="stat">
+                        <div class="stat-label">{{ t(label) }}</div>
+                        <div class="stat-value">{{ value if value is not none and value != "" else "—" }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if c.rd_forecast is not none %}
+                <div class="forecast">
+                    <h4>{{ t('an.forecast') }}</h4>
+                    <p class="hint">
+                        {{ t('an.forecast.r', r1="%.2f"|format(c.r1_used), r2="%.2f"|format(c.r2_used),
+                             assumed=(t('an.forecast.assumed') if c.r2_assumed else ""), rd=c.rd_rounded) }}
+                    </p>
+
+                    {% if lang == 'ru' %}
+                    {% for p in c.admission_problems %}
+                    <div class="warn">⚠ {{ p }}</div>
+                    {% endfor %}
+                    {% for n in c.notes %}
+                    <div class="meta">ℹ {{ n }}</div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <div class="table-wrap">
+                        <table class="grades">
+                            <tr>
+                                <th>{{ t('an.th.want') }}</th>
+                                <th>{{ t('an.th.percent') }}</th>
+                                <th>{{ t('an.th.onexam') }}</th>
+                            </tr>
+                            {% for n in c.exam_needs %}
+                            <tr>
+                                <td>{{ n.letter }} ({{ n.gpa }})</td>
+                                <td>{{ n.target }}</td>
+                                <td>{{ n.status if lang == 'ru' else ("—" if n.status == "недостижимо" else (0 if n.status == "уже обеспечено" else n.status)) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                    <p class="meta">{{ t('an.formula') }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <details>
+                <summary>{{ t('an.show') }}</summary>
+                <pre>{{ raw_text }}</pre>
+            </details>
+        </section>
+        {% endif %}
+    </main>
+{% endblock %}

@@ -1,0 +1,357 @@
+/* ===== JTU: основа. Идея: университетская ведомость в цветах АУЭС ===== */
+
+:root {
+    --red: #c8102e;          /* красный АУЭС */
+    --wine: #7a0c1e;         /* тёмно-красный для заголовков и акцентов */
+    --ink: #17171c;          /* текст */
+    --muted: #5d6068;        /* второстепенный текст */
+    --line: #e3dfe0;         /* линии таблиц и рамок */
+    --wash: #faf4f5;         /* бледно-розовый фон полос и плашек */
+    --paper: #ffffff;
+    --good: #1b7a52;
+    --good-bg: #e6f4ee;
+    --warn: #96600a;
+    --warn-bg: #fdf3dc;
+    --bad: #8b0a1d;
+    --bad-bg: #fcebee;
+    --radius: 6px;           /* один радиус на весь сайт */
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+    outline: 3px solid var(--red);
+    outline-offset: 2px;
+}
+
+/* --- Шапка --- */
+.header {
+    padding: 0 clamp(16px, 4vw, 40px);
+    background: var(--paper);
+    border-top: 5px solid var(--red);
+    border-bottom: 1px solid var(--line);
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1;
+    padding: 16px 0;
+}
+
+.logo span {
+    color: var(--red);
+}
+
+.logo-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* --- Кнопки --- */
+.btn {
+    display: inline-block;
+    padding: 12px 24px;
+    background: var(--red);
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.btn:hover {
+    background: var(--wine);
+}
+
+button.btn {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* --- Страница --- */
+.page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px clamp(16px, 4vw, 24px) 24px;
+}
+
+.page h1 {
+    font-size: clamp(26px, 4vw, 36px);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 12px;
+}
+
+.hint {
+    color: var(--muted);
+    margin-bottom: 18px;
+    max-width: 72ch;
+}
+
+.hint a,
+.page a {
+    color: var(--red);
+}
+
+.footer {
+    margin-top: 48px;
+    padding: 24px clamp(16px, 4vw, 40px);
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+}
+
+/* --- Форма вставки --- */
+textarea {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 14px;
+    margin-bottom: 16px;
+    resize: vertical;
+    background: var(--paper);
+}
+
+textarea:focus {
+    border-color: var(--red);
+    outline: 3px solid rgba(200, 16, 46, 0.18);
+}
+
+.field {
+    display: block;
+    margin-bottom: 16px;
+    color: var(--ink);
+    font-size: 15px;
+}
+
+.field input,
+.field select {
+    display: block;
+    width: 100%;
+    max-width: 340px;
+    margin-top: 6px;
+    padding: 10px 12px;
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--paper);
+}
+
+/* --- Результат --- */
+.result {
+    margin-top: 36px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.result h2 {
+    margin: 28px 0 12px;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+}
+
+.result pre {
+    background: var(--wash);
+    padding: 16px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    border: 1px solid var(--line);
+}
+
+.warn,
+.ok {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    border-left: 5px solid;
+}
+
+.warn {
+    background: var(--warn-bg);
+    border-color: var(--warn);
+    color: #5e3c02;
+}
+
+.ok {
+    background: var(--good-bg);
+    border-color: var(--good);
+    color: #0f4d33;
+}
+
+/* --- Блоки с предметами и таблицы расчётов --- */
+.subject {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--wine);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.subject h3 {
+    margin-bottom: 8px;
+    font-size: 18px;
+}
+
+.subject-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.meta {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.badge {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--radius);
+    white-space: nowrap;
+}
+
+.badge.good {
+    background: var(--good-bg);
+    color: var(--good);
+}
+
+.badge.bad {
+    background: var(--warn-bg);
+    color: var(--warn);
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table.grades {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+table.grades th,
+table.grades td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+table.grades th {
+    background: var(--wash);
+    color: var(--wine);
+    font-weight: 700;
+    border-bottom: 2px solid var(--wine);
+    white-space: nowrap;
+}
+
+table.grades tbody tr:nth-child(even) td,
+table.grades tr:nth-child(even) td {
+    background: #fcf9f9;
+}
+
+/* Таблица «сколько нужно на экзамене»: цифры по центру, РД выделен */
+table.matrix td,
+table.matrix th {
+    text-align: center;
+}
+
+table.matrix td:first-child,
+table.matrix th:first-child {
+    text-align: left;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.stat {
+    padding: 10px 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    margin: 0 -1px -1px 0;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.stat-value {
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.forecast {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.forecast h4 {
+    margin-bottom: 8px;
+    color: var(--wine);
+}
+
+details {
+    margin-top: 24px;
+}
+
+details summary {
+    cursor: pointer;
+    color: var(--red);
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .page {
+        padding-top: 28px;
+    }
+    .subject {
+        padding: 16px 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

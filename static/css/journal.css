@@ -1,0 +1,24 @@
+/* ===== Интерактивный журнал ===== */
+.journal-block { margin-bottom: 28px; }
+.journal-scroll { overflow-x: auto; }
+table.journal { border-collapse: collapse; font-size: 12px; background: #fff; }
+table.journal th, table.journal td {
+    border: 1px solid #d1d5db; padding: 4px 6px; text-align: center; white-space: nowrap;
+}
+table.journal th { background: #f3f4f6; }
+table.journal td.name { text-align: left; white-space: normal; min-width: 140px; font-weight: 600; }
+table.journal td.gray { background: #e5e7eb; color: #6b7280; }
+table.journal td.abs { color: #b91c1c; font-weight: 600; }
+table.journal td.tk { background: #fde68a; }
+table.journal td.rating { background: #bbf7d0; }
+table.journal td.edit { background: #dcfce7; padding: 0; }
+table.journal td.edit input {
+    width: 46px; border: none; background: transparent; text-align: center;
+    padding: 6px 2px; font: inherit;
+}
+table.journal td.edit input.bad { background: #fecaca; }
+.journal-summary { margin-top: 8px; font-size: 14px; color: #374151; }
+.j-line { margin-bottom: 4px; }
+
+.journal-control { margin-bottom: 16px; font-size: 15px; }
+.journal-control select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; }

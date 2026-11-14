@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ t('help.title') }}{% endblock %}
+
+{% block content %}
+    <main class="page">
+        <h1>{{ t('help.h1') }}</h1>
+        <p class="hint">{{ t('help.p') }}</p>
+
+        <div class="subject">
+            <h3>{{ t('help.1h') }}</h3>
+            <p>{{ t('help.1p')|safe }}</p>
+        </div>
+        <div class="subject">
+            <h3>{{ t('help.2h') }}</h3>
+            <p>{{ t('help.2p')|safe }}</p>
+        </div>
+        <div class="subject">
+            <h3>{{ t('help.3h') }}</h3>
+            <p>{{ t('help.3p')|safe }}</p>
+        </div>
+        <div class="subject">
+            <h3>{{ t('help.4h') }}</h3>
+            <p>{{ t('help.4p')|safe }}</p>
+        </div>
+        <div class="subject">
+            <h3>{{ t('help.5h') }}</h3>
+            <p>{{ t('help.5p')|safe }}</p>
+        </div>
+    </main>
+{% endblock %}
