@@ -285,6 +285,13 @@ table.journal td.edit.is-np {
 table.journal td.edit.is-np input { color: #8d8a8c; box-shadow: none; font-size: 11px; }
 table.journal td.edit.is-abs { background: var(--bad-bg); }
 table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
+
+.shot-box { background: var(--wash); border-left: 5px solid var(--red); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 8px; }
+.shot-box h2 { font-size: 20px; margin-bottom: 6px; }
+.shot-box p { color: var(--muted); margin-bottom: 12px; max-width: 62ch; }
+.shot-btn { cursor: pointer; }
+.shot-busy { font-weight: 600; color: var(--red) !important; margin: 12px 0 0 !important; }
+.shot-or { color: var(--muted); margin: 14px 0 10px; font-size: 14px; }
 </style>{% endblock %}
 
 {% block content %}
@@ -292,6 +299,29 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
         <h1>{{ t('an.h1') }}</h1>
         <p class="hint">{{ t('an.hint') }}</p>
         <p class="hint"><a href="{{ url_for('table') }}">{{ t('an.link') }}</a></p>
+
+        <form class="shot-box" method="post" action="{{ url_for('analyze') }}" enctype="multipart/form-data" id="shotForm">
+            <h2>{{ t('an.shot.h') }}</h2>
+            <p>{{ t('an.shot.p') }}</p>
+            <label class="btn shot-btn">
+                {{ t('an.shot.btn') }}
+                <input type="file" name="shots" accept="image/*" multiple hidden id="shotInput">
+            </label>
+            <p class="shot-busy" id="shotBusy" hidden>{{ t('an.shot.busy') }}</p>
+            {% if ocr_error %}<p class="warn">{{ ocr_error }}</p>{% endif %}
+        </form>
+        <script>
+        (function () {
+            var input = document.getElementById("shotInput");
+            if (!input) return;
+            input.addEventListener("change", function () {
+                if (!input.files.length) return;
+                document.getElementById("shotBusy").hidden = false;
+                input.form.submit();
+            });
+        })();
+        </script>
+        <p class="shot-or">{{ t('an.or') }}</p>
 
         <form method="post" action="{{ url_for('analyze') }}">
             <textarea name="raw_text" rows="10" placeholder="{{ t('an.placeholder') }}">{{ raw_text }}</textarea>
@@ -334,6 +364,15 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
             }));
         } catch (e) {}
         </script>
+        {% endif %}
+        {% if from_shots %}
+        <div class="ok">{{ t('an.shot.ok') }}</div>
+        {% if ocr_warnings %}
+        <div class="warn">
+            <b>{{ t('an.shot.warn.h') }}</b>
+            <ul>{% for w in ocr_warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
         {% endif %}
         {% if result %}
         {% set mode_name = t('an.mode.' ~ result.mode) %}
