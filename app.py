@@ -1,4 +1,4 @@
-from flask import Flask, g, render_template, request
+from flask import Flask, g, jsonify, render_template, request
 
 from i18n import DEFAULT_LANG, LANGS, js_strings, translate
 
@@ -55,9 +55,35 @@ def build_payload(result):
     return payload
 
 
+@app.route("/api/status", methods=["POST"])
+def api_status():
+    """Короткая сводка по каждому предмету для главной страницы. Ничего не сохраняем."""
+    data = request.get_json(silent=True) or {}
+    raw = str(data.get("raw", ""))[:200000]
+    mode = data.get("mode", "auto")
+    if mode not in ("auto", "semester", "trimester"):
+        mode = "auto"
+    result = parse_platonus(raw, mode)
+    cards = []
+    for subject in result["subjects"]:
+        calc = analyze_subject(subject)
+        need = {m["target"]: m["need"] for m in calc["matrix"]}
+        cards.append({
+            "name": subject["name"],
+            "rd": calc["rd_rounded"],
+            "forecast": bool(calc["r2_assumed"]),
+            "adm": calc["admission_req"]["status"],
+            "auto": calc["automat"]["status"],
+            "n70": need.get(70),
+            "n90": need.get(90),
+            "has_need": 70 in need,
+        })
+    return jsonify({"cards": cards, "mode": result["mode"]})
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", js_i18n=js_strings(g.lang))
 
 
 @app.route("/analyze", methods=["GET", "POST"])
