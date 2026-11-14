@@ -17,6 +17,8 @@ import tempfile
 
 from PIL import Image, ImageOps
 
+from platonus_parser import LAYOUTS
+
 try:  # скриншоты и фото с iPhone иногда в формате HEIC
     import pillow_heif
     pillow_heif.register_heif_opener()
@@ -154,6 +156,8 @@ def read_image(file_obj, cache):
     image = image.resize((TARGET_WIDTH, max(1, int(image.height * scale))), Image.LANCZOS)
 
     lines = _lines(_run_tesseract(image))
+    if any(_text(l).lower().startswith("рубеж") for l in lines):
+        return [("final", b) for b in parse_final_screen(lines, TARGET_WIDTH)], []
     events = []
     card = None
     state = None          # что ждём внутри карточки: 'h1', 'v1', 'h2', 'v2'
@@ -223,6 +227,81 @@ def read_image(file_obj, cache):
             pending_title = re.sub(r"\s+\S{1,2}$", "", text).strip()
 
     return events, warnings
+
+
+FINAL_KEYS = ("rk1", "r1", "tk1t", "rk2", "r2", "tk2t", "rd", "course", "exam", "total")
+
+
+def _final_label(text):
+    """Возвращает ключ строки на экране «Итоговые оценки».
+
+    Для строк с номером (РК, рейтинг, ТК) возвращает (основа, цифра или None):
+    цифра может «приклеиться» к слову и не прочитаться, тогда её определит порядок строк.
+    """
+    t = text.lower().strip()
+    if t.startswith("рубеж"):
+        base = "rk"
+    elif t.startswith("рейтинг") and "допуск" in t:
+        return "rd"
+    elif t.startswith("рейтинг"):
+        base = "r"
+    elif re.match(r"^[тt][кk]", t):
+        base = "tk"
+    elif "курсов" in t:
+        return "course"
+    elif t.startswith("экзам"):
+        return "exam"
+    elif t.startswith("итогов"):
+        return "total"
+    else:
+        return None
+    m = re.search(r"(?<![0-9])([12lI])(?![0-9])", text)
+    digit = None if not m else ("1" if m.group(1) in "lI1" else "2")
+    return (base, digit)
+
+
+def _final_key(label, block):
+    if isinstance(label, str) or label is None:
+        return label
+    base, digit = label
+    suffix = "t" if base == "tk" else ""
+    if digit is None:
+        first = (block or {}).get(base + "1" + suffix, "")
+        digit = "1" if (block is None or first == "") else "2"
+    return base + digit + suffix
+
+
+def _final_value(words):
+    text = "".join(w["text"] for w in words).strip()
+    if not text:
+        return ""
+    low = text.lower()
+    if low.startswith("недоп"):
+        return "недоп."
+    return _clean_number(text)
+
+
+def parse_final_screen(lines, width):
+    """Список блоков {name, rk1, r1, ...}: на одном экране может быть один или несколько предметов."""
+    blocks, block, pending = [], None, None
+    for line in lines:
+        text = _text(line)
+        left = [w for w in line["words"] if w["cx"] < width * 0.5]
+        right = [w for w in line["words"] if w["cx"] >= width * 0.5]
+        key = _final_label(" ".join(w["text"] for w in left)) if left else None
+        key = _final_key(key, block)
+        if key:
+            if key == "rk1":
+                block = {"name": pending or "", "titled": bool(pending)}
+                block.update({k: "" for k in FINAL_KEYS})
+                blocks.append(block)
+                pending = None
+            if block is not None:
+                block[key] = _final_value(right)
+            continue
+        if _looks_like_title(text):
+            pending = re.sub(r"\s+\S{1,2}$", "", text).strip()
+    return blocks
 
 
 def _looks_like_title(text):
@@ -309,6 +388,13 @@ def build_text(subjects):
                 p[p1_tk1] = card["tk1_fixed"]
                 p[p1_w2:p1_w2 + n2] = w2
                 p[p1_tk2] = card["tk2_fixed"]
+                fin = subject.get("final")
+                if fin:
+                    L = LAYOUTS[mode]["first"]
+                    for src, dst in (("tk1t", "tk1t"), ("rk1", "rk1"), ("r1", "r1"), ("tk2t", "tk2t"),
+                                     ("rk2", "rk2"), ("r2", "r2"), ("rd", "rd"), ("exam", "exam"),
+                                     ("total", "pct")):
+                        p[L[dst]] = fin.get(src, "")
                 row = [subject["name"], card["stream"], card["teacher"]] + p
             else:
                 p = [""] * next_size
@@ -321,6 +407,50 @@ def build_text(subjects):
     return "\n".join(lines), mode
 
 
+def _norm_name(name):
+    return re.sub(r"[^0-9a-zа-я]+", "", name.lower())
+
+
+def _attach_finals(subjects, finals, warnings):
+    """Привязывает «Итоговые оценки» к предметам: по названию, затем по порядку для безымянных."""
+    import difflib
+    unmatched = []
+    used = set()
+    for fin in finals:
+        best, score = None, 0.0
+        if fin["titled"]:
+            for sub in subjects:
+                if "final" in sub or not sub["titled"]:
+                    continue
+                ratio = difflib.SequenceMatcher(None, _norm_name(sub["name"]), _norm_name(fin["name"])).ratio()
+                if ratio > score:
+                    best, score = sub, ratio
+        if best is not None and score >= 0.72:
+            best["final"] = fin
+        else:
+            unmatched.append(fin)
+
+    nameless = [s for s in subjects if "final" not in s and not s["titled"]]
+    if unmatched and len(unmatched) == len(nameless):
+        for sub, fin in zip(nameless, unmatched):
+            sub["final"] = fin
+            if fin["titled"]:
+                sub["name"] = fin["name"]
+        unmatched = []
+    elif unmatched:
+        for fin in unmatched:
+            warnings.append(
+                f"Итоговые оценки предмета «{fin['name'] or '?'}» не удалось привязать к предмету из текущих оценок. "
+                "Добавьте скриншот «Текущие оценки» этого предмета."
+            )
+    if finals:
+        for sub in subjects:
+            if "final" not in sub:
+                warnings.append(f"Для предмета «{sub['name']}» нет скриншота «Итоговые оценки», РК1 и РК2 не заполнены.")
+    else:
+        warnings.append("Нет скриншота «Итоговые оценки»: РК1 и РК2 не заполнены, рейтинг допуска не посчитать.")
+
+
 def read_screenshots(files):
     """files: список файловых объектов. Возвращает dict(text, mode, warnings, subjects)."""
     cache = {}
@@ -328,11 +458,15 @@ def read_screenshots(files):
     subjects = []
     seen = {}
     current = None
+    finals = []
 
     for f in files:
         events, _ = read_image(f, cache)
         title = None
         for kind, payload in events:
+            if kind == "final":
+                finals.append(payload)
+                continue
             if kind == "title":
                 title = payload
                 continue
@@ -357,17 +491,20 @@ def read_screenshots(files):
             seen[card["stream"]] = True
 
             if new_subject:
-                current = {"name": title or card["prefix"], "prefix": card["prefix"], "cards": []}
+                current = {"name": title or card["prefix"], "prefix": card["prefix"], "cards": [], "titled": bool(title)}
                 subjects.append(current)
-                if not title:
-                    warnings.append(
-                        f"У предмета {card['prefix']} на скриншоте нет названия. "
-                        "Прокрутите так, чтобы название было видно, или оставьте как есть."
-                    )
             title = None
             fixed = _verify(card, warnings)
             card["tk1_fixed"], card["tk2_fixed"] = fixed["tk1"], fixed["tk2"]
             current["cards"].append(card)
+
+    _attach_finals(subjects, finals, warnings)
+    for sub in subjects:
+        if not sub["titled"] and sub["name"] == sub["prefix"]:
+            warnings.append(
+                f"У предмета {sub['prefix']} нет названия: на скриншоте «Текущие оценки» его не видно. "
+                "Добавьте скриншот «Итоговые оценки» этого предмета, название возьмётся оттуда."
+            )
 
     if not subjects:
         raise OcrError("Не нашли в скриншотах журнал. Откройте «Журнал» → «Текущие оценки» и сделайте скриншот.")

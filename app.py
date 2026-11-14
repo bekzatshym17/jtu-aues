@@ -95,7 +95,7 @@ def api_status():
             "rd": calc["rd_rounded"],
             "forecast": bool(calc["r2_assumed"]),
             "adm": calc["admission_req"]["status"],
-            "auto": calc["automat"]["status"],
+            "auto": calc["automat"]["status"] if subject.get("rk1") is not None else "unknown",
             "n70": need.get(70),
             "n90": need.get(90),
             "has_need": 70 in need,
@@ -119,7 +119,7 @@ def analyze():
         raw_text = request.form.get("raw_text", "")
         assumed_raw = request.form.get("assumed_r2", "").strip()
 
-        shots = [f for f in request.files.getlist("shots") if f and f.filename][:8]
+        shots = [f for f in request.files.getlist("shots") if f and f.filename][:20]
         if shots:
             try:
                 ocr = read_screenshots([f.stream for f in shots])
