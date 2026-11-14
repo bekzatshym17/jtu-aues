@@ -396,7 +396,7 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
         {% endif %}
         {% endif %}
         {% if result %}
-        {% set mode_name = t('an.mode.' ~ result.mode) %}
+        {% set mode_name = result.mode_title if result.mode == 'custom' else t('an.mode.' ~ result.mode) %}
         <section class="result">
             <h2>{{ t('an.found', n=result.subjects | length, mode=mode_name) }}</h2>
 
