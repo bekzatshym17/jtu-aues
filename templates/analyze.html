@@ -325,6 +325,16 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
         })();
         </script>
 
+        {% if result and result.subjects %}
+        <script>
+        // Запоминаем журнал на этом устройстве: на главной сразу покажем статус
+        try {
+            localStorage.setItem("jtu.saved", JSON.stringify({
+                raw: {{ raw_text | tojson }}, mode: {{ result.mode | tojson }}, ts: Date.now()
+            }));
+        } catch (e) {}
+        </script>
+        {% endif %}
         {% if result %}
         {% set mode_name = t('an.mode.' ~ result.mode) %}
         <section class="result">

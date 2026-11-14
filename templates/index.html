@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+    <section id="status" class="status" hidden></section>
     <section class="hero-banner"
              style="background-image: url('{{ url_for('static', filename='img/hero.jpg') }}');"></section>
     <div class="hero-actions">
@@ -40,3 +41,6 @@
         </div>
     </section>
 {% endblock %}
+
+{% block head %}<script id="i18n" type="application/json">{{ js_i18n | tojson }}</script>
+<script defer src="{{ url_for('static', filename='js/status.js') }}"></script>{% endblock %}
