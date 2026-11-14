@@ -200,7 +200,7 @@
 
                 var tags = el("div", "mc-tags");
                 var admOk = c.adm === "no" ? false : (c.adm === "unknown" ? null : true);
-                var autoOk = c.auto === "possible";
+                var autoOk = c.auto === "possible" ? true : (c.auto === "unknown" ? null : false);
                 tags.appendChild(el("span", "tag g-" + String(admOk), glyph(admOk) + " " + tr("st.adm.short")));
                 tags.appendChild(el("span", "tag g-" + String(autoOk), glyph(autoOk) + " " + tr("st.auto.short")));
                 card.appendChild(tags);
