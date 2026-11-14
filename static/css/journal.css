@@ -1,24 +1,284 @@
-/* ===== Интерактивный журнал ===== */
-.journal-block { margin-bottom: 28px; }
-.journal-scroll { overflow-x: auto; }
-table.journal { border-collapse: collapse; font-size: 12px; background: #fff; }
-table.journal th, table.journal td {
-    border: 1px solid #d1d5db; padding: 4px 6px; text-align: center; white-space: nowrap;
-}
-table.journal th { background: #f3f4f6; }
-table.journal td.name { text-align: left; white-space: normal; min-width: 140px; font-weight: 600; }
-table.journal td.gray { background: #e5e7eb; color: #6b7280; }
-table.journal td.abs { color: #b91c1c; font-weight: 600; }
-table.journal td.tk { background: #fde68a; }
-table.journal td.rating { background: #bbf7d0; }
-table.journal td.edit { background: #dcfce7; padding: 0; }
-table.journal td.edit input {
-    width: 46px; border: none; background: transparent; text-align: center;
-    padding: 6px 2px; font: inherit;
-}
-table.journal td.edit input.bad { background: #fecaca; }
-.journal-summary { margin-top: 8px; font-size: 14px; color: #374151; }
-.j-line { margin-bottom: 4px; }
+/* ===== Журнал: ведомость с зелёными клетками для будущих баллов ===== */
 
-.journal-control { margin-bottom: 16px; font-size: 15px; }
-.journal-control select { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; }
+/* Панель цели: прилипает к верху, пока листаете предметы */
+.goal-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 12px 0;
+    margin-bottom: 18px;
+    background: var(--paper);
+    border-bottom: 2px solid var(--wine);
+}
+
+.goal-label {
+    font-weight: 700;
+    color: var(--wine);
+}
+
+.goal-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    min-width: 46px;
+    padding: 7px 12px;
+    font: inherit;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.chip:hover {
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.chip[aria-pressed="true"] {
+    background: var(--red);
+    border-color: var(--red);
+    color: #ffffff;
+}
+
+/* Предмет */
+.journal-block {
+    margin-bottom: 26px;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--wine);
+    border-radius: var(--radius);
+    background: var(--paper);
+}
+
+.journal-scroll {
+    overflow-x: auto;
+}
+
+table.journal {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    width: 100%;
+}
+
+table.journal th,
+table.journal td {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 6px 7px;
+    text-align: center;
+    white-space: nowrap;
+    background: var(--paper);
+}
+
+table.journal th {
+    background: var(--wash);
+    color: var(--wine);
+    font-weight: 700;
+    border-bottom: 2px solid var(--wine);
+}
+
+/* Название предмета остаётся на месте при прокрутке вправо */
+table.journal td.name {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    text-align: left;
+    white-space: normal;
+    min-width: 150px;
+    max-width: 190px;
+    font-weight: 700;
+    box-shadow: 2px 0 0 var(--line);
+}
+
+table.journal th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+}
+
+/* н.п.: штриховка, в расчёт не входит */
+table.journal td.gray {
+    color: #8d8a8c;
+    font-size: 11px;
+    background: repeating-linear-gradient(135deg, #f1eeef, #f1eeef 4px, #e7e3e4 4px, #e7e3e4 5px);
+}
+
+/* н (нет на занятии): равно нулю */
+table.journal td.abs {
+    background: var(--bad-bg);
+    color: var(--bad);
+    font-weight: 800;
+}
+
+/* Средние ТК и итоги */
+table.journal td.tk {
+    background: var(--warn-bg);
+    font-weight: 600;
+}
+
+table.journal td.rating {
+    background: var(--good-bg);
+    color: #0f4d33;
+    font-weight: 800;
+    font-size: 14px;
+}
+
+/* Клетки, куда вы вписываете свои баллы */
+table.journal td.edit {
+    padding: 0;
+    background: #f1fbf5;
+}
+
+table.journal td.edit input {
+    width: 52px;
+    padding: 8px 2px;
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    color: var(--good);
+    background: transparent;
+    border: none;
+    box-shadow: inset 0 0 0 1px #8fcfb0;
+}
+
+table.journal td.edit input:hover {
+    background: #e2f6ea;
+}
+
+table.journal td.edit input:focus {
+    outline: none;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px var(--red);
+}
+
+table.journal td.edit input.bad {
+    background: var(--bad-bg);
+    box-shadow: inset 0 0 0 2px var(--bad);
+}
+
+/* Итоги под таблицей */
+.journal-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--line);
+}
+
+.j-line {
+    padding: 10px 16px;
+    font-size: 14px;
+    line-height: 1.45;
+    border-left: 5px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.j-line.is-ok { border-left-color: var(--good); background: var(--good-bg); color: #0f4d33; }
+.j-line.is-warn { border-left-color: #d49a2a; background: #fffaf0; color: #5e3c02; }
+.j-line.is-bad { border-left-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.j-line.is-info { border-left-color: var(--wine); background: var(--paper); color: var(--ink); }
+
+/* Главный ответ: сколько баллов набирать */
+.j-line.is-need {
+    grid-column: 1 / -1;
+    border-left-color: var(--red);
+    background: var(--wash);
+    color: var(--ink);
+    font-size: 16px;
+}
+
+.j-num {
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--red);
+    padding: 0 2px;
+}
+
+@media (max-width: 760px) {
+    .journal-summary {
+        grid-template-columns: 1fr;
+    }
+    .goal-bar {
+        position: static;
+        gap: 6px 10px;
+    }
+    .goal-chips {
+        gap: 4px;
+    }
+    .chip {
+        min-width: 38px;
+        padding: 6px 6px;
+    }
+}
+
+.j-line.c-needs, .j-line.c-weeks { grid-column: 1 / -1; }
+
+/* Расчёт по видам занятий */
+.j-weeks {
+    list-style: none;
+    margin: 8px 0 0;
+}
+
+.j-weeks li {
+    padding: 4px 0;
+    border-top: 1px solid var(--line);
+}
+
+.j-weeks li.is-bad {
+    color: var(--bad);
+}
+
+.j-num-s {
+    font-size: 22px;
+    line-height: 1;
+    color: var(--red);
+    letter-spacing: -0.02em;
+    padding: 0 2px;
+}
+
+/* Подсказка у клетки: н.п. / н.я / очистить */
+.cell-pop {
+    position: fixed;
+    z-index: 50;
+    display: none;
+    gap: 4px;
+    padding: 5px;
+    background: var(--paper);
+    border: 1px solid var(--wine);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.pop-btn {
+    min-width: 44px;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--wash);
+    border: 1px solid #c9c4c6;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.pop-btn:hover { border-color: var(--red); color: var(--red); }
+.pop-abs { color: var(--bad); }
+.pop-clear { color: var(--muted); }
+
+/* Клетка, которую пометили н.п. или н.я */
+table.journal td.edit.is-np {
+    background: repeating-linear-gradient(135deg, #f1eeef, #f1eeef 4px, #e7e3e4 4px, #e7e3e4 5px);
+}
+table.journal td.edit.is-np input { color: #8d8a8c; box-shadow: none; font-size: 11px; }
+table.journal td.edit.is-abs { background: var(--bad-bg); }
+table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }

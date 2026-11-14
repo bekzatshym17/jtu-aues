@@ -3,9 +3,11 @@ from flask import Flask, g, jsonify, render_template, request
 from i18n import DEFAULT_LANG, LANGS, js_strings, translate
 
 from calculator import THRESHOLDS, analyze_subject, exam_matrix
+from ocr_reader import OcrError, read_screenshots
 from platonus_parser import parse_platonus
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024   # до 30 МБ на загрузку
 
 
 @app.before_request
@@ -55,6 +57,26 @@ def build_payload(result):
     return payload
 
 
+@app.route("/diag")
+def diag():
+    """Проверка сервера: установлен ли Tesseract и русский язык. Личных данных нет."""
+    import shutil, subprocess
+    info = {"tesseract": shutil.which("tesseract")}
+    try:
+        out = subprocess.run(["tesseract", "--version"], capture_output=True, text=True, timeout=10)
+        info["version"] = (out.stdout or out.stderr).splitlines()[0]
+        langs = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True, timeout=10)
+        info["langs"] = [x for x in langs.stdout.split() if x in ("rus", "eng", "kaz")]
+    except Exception as exc:
+        info["error"] = f"{type(exc).__name__}: {exc}"
+    try:
+        from PIL import Image  # noqa: F401
+        info["pillow"] = "ok"
+    except Exception as exc:
+        info["pillow"] = f"{type(exc).__name__}: {exc}"
+    return jsonify(info)
+
+
 @app.route("/api/status", methods=["POST"])
 def api_status():
     """Короткая сводка по каждому предмету для главной страницы. Ничего не сохраняем."""
@@ -92,9 +114,21 @@ def analyze():
     result = None
     assumed_raw = ""
     mode = request.form.get("mode", "auto")
+    ocr_warnings, ocr_error, from_shots = [], "", False
     if request.method == "POST":
         raw_text = request.form.get("raw_text", "")
         assumed_raw = request.form.get("assumed_r2", "").strip()
+
+        shots = [f for f in request.files.getlist("shots") if f and f.filename][:8]
+        if shots:
+            try:
+                ocr = read_screenshots([f.stream for f in shots])
+                raw_text, mode = ocr["text"], ocr["mode"]
+                ocr_warnings, from_shots = ocr["warnings"], True
+            except OcrError as exc:
+                ocr_error = str(exc)
+            except Exception as exc:          # показываем настоящую причину, а не пустую страницу
+                ocr_error = f"Не удалось прочитать скриншот ({type(exc).__name__}: {exc})"
 
         assumed = None
         if assumed_raw:
@@ -104,14 +138,15 @@ def analyze():
             except ValueError:
                 assumed = None
 
-        result = parse_platonus(raw_text, mode)
-        for subject in result["subjects"]:
+        result = parse_platonus(raw_text, mode) if raw_text.strip() else None
+        for subject in (result["subjects"] if result else []):
             subject["calc"] = analyze_subject(subject, assumed_r2=assumed)
 
     payload = build_payload(result) if result else []
     return render_template(
         "analyze.html", raw_text=raw_text, result=result,
         assumed_raw=assumed_raw, payload=payload, mode=mode,
+        ocr_warnings=ocr_warnings, ocr_error=ocr_error, from_shots=from_shots,
         js_i18n=js_strings(g.lang),
     )
 

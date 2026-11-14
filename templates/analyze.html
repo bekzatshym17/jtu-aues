@@ -286,6 +286,7 @@ table.journal td.edit.is-np input { color: #8d8a8c; box-shadow: none; font-size:
 table.journal td.edit.is-abs { background: var(--bad-bg); }
 table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
 
+.journal-block { scroll-margin-top: 58px; }
 .shot-box { background: var(--wash); border-left: 5px solid var(--red); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 8px; }
 .shot-box h2 { font-size: 20px; margin-bottom: 6px; }
 .shot-box p { color: var(--muted); margin-bottom: 12px; max-width: 62ch; }
@@ -300,6 +301,26 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
         <p class="hint">{{ t('an.hint') }}</p>
         <p class="hint"><a href="{{ url_for('table') }}">{{ t('an.link') }}</a></p>
 
+        <script>
+        // Пришли с главной по карточке предмета: берём журнал, сохранённый на этом устройстве
+        (function () {
+            var m = location.search.match(/[?&]open=(\d+)/);
+            if (!m || document.querySelector("table.journal, #journal")) return;
+            var saved = null;
+            try { saved = JSON.parse(localStorage.getItem("jtu.saved") || "null"); } catch (e) {}
+            if (!saved || !saved.raw) return;
+            var f = document.createElement("form");
+            f.method = "post";
+            f.action = "{{ url_for('analyze') }}#subj-" + m[1];
+            [["raw_text", saved.raw], ["mode", saved.mode || "auto"]].forEach(function (kv) {
+                var i = document.createElement("input");
+                i.type = "hidden"; i.name = kv[0]; i.value = kv[1];
+                f.appendChild(i);
+            });
+            document.body.appendChild(f);
+            f.submit();
+        })();
+        </script>
         <form class="shot-box" method="post" action="{{ url_for('analyze') }}" enctype="multipart/form-data" id="shotForm">
             <h2>{{ t('an.shot.h') }}</h2>
             <p>{{ t('an.shot.p') }}</p>
@@ -828,7 +849,17 @@ table.journal td.edit.is-abs input { color: var(--bad); box-shadow: none; }
   control.appendChild(chips);
   root.appendChild(control);
 
-  subjects.forEach(function (sub) { root.appendChild(build(sub)); });
+  subjects.forEach(function (sub, i) {
+    var node = build(sub);
+    node.id = "subj-" + i;
+    root.appendChild(node);
+  });
+
+  // Пришли с главной (нажали на карточку предмета): прокручиваем к нему
+  var target = location.hash && document.getElementById(location.hash.slice(1));
+  if (target) {
+    setTimeout(function () { target.scrollIntoView({block: "start"}); }, 60);
+  }
 })();
 
             </script>

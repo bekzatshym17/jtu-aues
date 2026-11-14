@@ -1,46 +1,233 @@
 {% extends "base.html" %}
 
+{% block head %}<script id="i18n" type="application/json">{{ js_i18n | tojson }}</script>{% endblock %}
+
 {% block content %}
+    <div class="home-bg" style="background-image: url('{{ url_for('static', filename='img/hero.jpg') }}');" aria-hidden="true"></div>
+
     <section id="status" class="status" hidden></section>
-    <section class="hero-banner"
-             style="background-image: url('{{ url_for('static', filename='img/hero.jpg') }}');"></section>
-    <div class="hero-actions">
-        <a href="{{ url_for('analyze') }}" class="btn">{{ t('home.analyze') }}</a>
-        <a href="{{ url_for('help_page') }}" class="btn-ghost">{{ t('home.how') }}</a>
-    </div>
 
-    <section class="home-intro">
-        <h1>{{ t('home.h1') }}</h1>
-        <p>{{ t('home.p') }}</p>
-    </section>
+    <section class="calc">
+        <h1 class="calc-q">{{ t('home.q') }}</h1>
 
-    <section class="tiles">
-        <a class="tile primary" href="{{ url_for('analyze') }}">
-            <h3>{{ t('tile.journal.h') }}</h3>
-            <p>{{ t('tile.journal.p') }}</p>
-        </a>
-        <a class="tile" href="{{ url_for('table') }}">
-            <h3>{{ t('tile.exam.h') }}</h3>
-            <p>{{ t('tile.exam.p') }}</p>
-        </a>
-        <a class="tile" href="{{ url_for('analyze') }}">
-            <h3>{{ t('tile.adm.h') }}</h3>
-            <p>{{ t('tile.adm.p') }}</p>
-        </a>
-        <a class="tile" href="{{ url_for('gpa') }}">
-            <h3>{{ t('tile.gpa.h') }}</h3>
-            <p>{{ t('tile.gpa.p') }}</p>
-        </a>
-        <a class="tile" href="{{ url_for('help_page') }}">
-            <h3>{{ t('tile.help.h') }}</h3>
-            <p>{{ t('tile.help.p') }}</p>
-        </a>
-        <div class="tile soon">
-            <h3>{{ t('tile.stip.h') }} <span class="soon-badge">{{ t('soon') }}</span></h3>
-            <p>{{ t('tile.stip.p') }}</p>
+        <div class="dial">
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+                <circle class="dial-track" cx="100" cy="100" r="86"/>
+                <circle class="dial-fill" id="dialFill" cx="100" cy="100" r="86"/>
+            </svg>
+            <div class="dial-center">
+                <span class="dial-num" id="dialNum">70</span>
+                <span class="dial-lbl">{{ t('home.rd') }}</span>
+            </div>
+        </div>
+
+        <input type="range" id="rdRange" class="range" min="50" max="100" step="1" value="70"
+               aria-label="{{ t('home.rd') }}">
+
+        <div class="need">
+            <div class="need-head"><span>{{ t('home.final') }}</span><span>{{ t('home.exam') }}</span></div>
+            {% for target in (70, 85, 90) %}
+            <div class="need-row" data-target="{{ target }}">
+                <span class="need-t">{{ target }}</span>
+                <span class="need-bar"><i></i></span>
+                <span class="need-n">–</span>
+            </div>
+            {% endfor %}
         </div>
     </section>
-{% endblock %}
 
-{% block head %}<script id="i18n" type="application/json">{{ js_i18n | tojson }}</script>
-<script defer src="{{ url_for('static', filename='js/status.js') }}"></script>{% endblock %}
+    <section class="cta">
+        <a class="cta-btn cta-main" href="{{ url_for('analyze') }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <span>{{ t('home.cta.shot') }}</span>
+        </a>
+        <a class="cta-btn" href="{{ url_for('analyze') }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6"/></svg>
+            <span>{{ t('home.cta.paste') }}</span>
+        </a>
+    </section>
+
+    <script>
+    (function () {
+        var T = {};
+        try { T = JSON.parse(document.getElementById("i18n").textContent); } catch (e) {}
+        function tr(key, vars) {
+            var s = T[key] || key;
+            for (var k in (vars || {})) s = s.replace("{" + k + "}", vars[k]);
+            return s;
+        }
+        function el(tag, cls, text) {
+            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text !== undefined) n.textContent = text;
+            return n;
+        }
+        var SVGNS = "http://www.w3.org/2000/svg";
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---------- Калькулятор: РД -> сколько на экзамене ---------- */
+        var R = 86, C = 2 * Math.PI * R;
+        var fill = document.getElementById("dialFill");
+        var num = document.getElementById("dialNum");
+        var range = document.getElementById("rdRange");
+        fill.style.strokeDasharray = C;
+
+        function needFor(target, rd) {
+            var need = (target - 0.6 * rd) / 0.4;
+            if (need > 100) return null;
+            return Math.max(0, Math.ceil(need - 1e-6));
+        }
+        function tone(n) {
+            if (n === null) return "none";
+            if (n <= 50) return "good";
+            if (n <= 75) return "warn";
+            return "bad";
+        }
+        function draw(rd) {
+            num.textContent = rd;
+            fill.style.strokeDashoffset = C * (1 - rd / 100);
+            document.querySelectorAll(".need-row").forEach(function (row) {
+                var n = needFor(Number(row.dataset.target), rd);
+                var bar = row.querySelector("i");
+                bar.style.width = (n === null ? 100 : Math.max(n, 3)) + "%";
+                bar.className = "t-" + tone(n);
+                row.querySelector(".need-n").textContent = n === null ? "✕" : (n === 0 ? "✓" : n);
+            });
+        }
+        // Один раз при открытии: кольцо рисуется, число считается снизу
+        if (reduce) {
+            draw(70);
+        } else {
+            fill.style.strokeDashoffset = C;
+            var t0 = null;
+            requestAnimationFrame(function step(ts) {
+                if (t0 === null) t0 = ts;
+                var k = Math.min(1, (ts - t0) / 900);
+                var eased = 1 - Math.pow(1 - k, 3);
+                draw(Math.round(50 + 20 * eased));
+                if (k < 1) requestAnimationFrame(step);
+            });
+        }
+        range.addEventListener("input", function () { draw(Number(range.value)); });
+
+        /* ---------- Мой статус (журнал, сохранённый на этом устройстве) ---------- */
+        var box = document.getElementById("status");
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem("jtu.saved") || "null"); } catch (e) {}
+        if (!saved || !saved.raw) return;
+
+        fetch("/api/status", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({raw: saved.raw, mode: saved.mode})
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            renderStatus(data.cards || []);
+        }).catch(function () {});
+
+        function stateOf(c) {
+            if (c.adm === "no") return "bad";
+            if ((c.adm === "yes" || c.adm === "possible") && c.auto === "possible") return "good";
+            if (c.adm === "yes" || c.adm === "possible") return "warn";
+            return "none";
+        }
+        function glyph(ok) { return ok === true ? "✓" : (ok === false ? "✕" : "?"); }
+
+        function donut(value, state) {
+            var svg = document.createElementNS(SVGNS, "svg");
+            svg.setAttribute("viewBox", "0 0 100 100");
+            svg.setAttribute("class", "mini");
+            var r = 42, c = 2 * Math.PI * r;
+            var track = document.createElementNS(SVGNS, "circle");
+            track.setAttribute("class", "mini-track");
+            var arc = document.createElementNS(SVGNS, "circle");
+            arc.setAttribute("class", "mini-arc s-" + state);
+            [track, arc].forEach(function (n) {
+                n.setAttribute("cx", 50); n.setAttribute("cy", 50); n.setAttribute("r", r);
+                svg.appendChild(n);
+            });
+            arc.style.strokeDasharray = c;
+            var target = c * (1 - Math.max(0, Math.min(100, value || 0)) / 100);
+            arc.style.strokeDashoffset = reduce ? target : c;
+            if (!reduce) {
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () { arc.style.strokeDashoffset = target; });
+                });
+            }
+            return svg;
+        }
+
+        function needRow(label, n, has) {
+            var row = el("div", "mn-row");
+            row.appendChild(el("span", "mn-t", label));
+            var bar = el("span", "mn-bar"), i = document.createElement("i");
+            var none = n === null || n === undefined;
+            i.style.width = (none ? 100 : Math.max(n, 3)) + "%";
+            i.className = "t-" + tone(none ? null : n);
+            bar.appendChild(i);
+            row.appendChild(bar);
+            row.appendChild(el("span", "mn-n", none ? "✕" : (n <= 0 ? "✓" : String(n))));
+            return row;
+        }
+
+        function renderStatus(cards) {
+            if (!cards.length) return;
+            box.textContent = "";
+            box.hidden = false;
+
+            var count = {good: 0, warn: 0, bad: 0, none: 0};
+            cards.forEach(function (c) { count[stateOf(c)]++; });
+
+            var sum = el("div", "sum");
+            ["good", "warn", "bad", "none"].forEach(function (k) {
+                if (!count[k]) return;
+                var seg = el("div", "sum-seg s-" + k, String(count[k]));
+                seg.style.flexGrow = count[k];
+                seg.title = tr("st." + k);
+                sum.appendChild(seg);
+            });
+            box.appendChild(sum);
+
+            var grid = el("div", "mini-grid");
+            cards.forEach(function (c, idx) {
+                var st = stateOf(c);
+                var card = el("a", "mc s-" + st);
+                card.href = "/analyze?open=" + idx;
+                var ring = el("div", "mc-ring");
+                ring.appendChild(donut(c.rd, st));
+                ring.appendChild(el("span", "mc-num", c.rd === null || c.rd === undefined ? "–" : String(c.rd)));
+                card.appendChild(ring);
+                card.appendChild(el("div", "mc-name", c.name));
+
+                var tags = el("div", "mc-tags");
+                var admOk = c.adm === "no" ? false : (c.adm === "unknown" ? null : true);
+                var autoOk = c.auto === "possible";
+                tags.appendChild(el("span", "tag g-" + String(admOk), glyph(admOk) + " " + tr("st.adm.short")));
+                tags.appendChild(el("span", "tag g-" + String(autoOk), glyph(autoOk) + " " + tr("st.auto.short")));
+                card.appendChild(tags);
+
+                if (c.has_need) {
+                    var needs = el("div", "mc-needs");
+                    needs.appendChild(needRow("70", c.n70));
+                    needs.appendChild(needRow("90", c.n90));
+                    card.appendChild(needs);
+                }
+                card.style.animationDelay = (reduce ? 0 : Math.min(idx, 8) * 60) + "ms";
+                grid.appendChild(card);
+            });
+            box.appendChild(grid);
+
+            var foot = el("div", "st-foot");
+            foot.appendChild(el("span", "st-note", tr("st.local.short")));
+            var forget = el("button", "st-forget", tr("st.forget"));
+            forget.type = "button";
+            forget.addEventListener("click", function () {
+                if (!window.confirm(tr("st.confirm"))) return;
+                try { localStorage.removeItem("jtu.saved"); } catch (e) {}
+                location.reload();
+            });
+            foot.appendChild(forget);
+            box.appendChild(foot);
+        }
+    })();
+    </script>
+{% endblock %}

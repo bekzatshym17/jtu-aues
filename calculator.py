@@ -26,7 +26,11 @@ SCALE = [
 
 
 def round_half_up(x):
-    """Обычное школьное округление (41.5 -> 42)."""
+    """Обычное школьное округление (41.5 -> 42).
+
+    По вашим данным Platonus округляет рейтинг допуска именно так
+    (Физкультура: 83 / 2 = 41.5, в Platonus 42).
+    """
     return int(math.floor(x + 0.5))
 
 
@@ -85,11 +89,11 @@ def exam_needed(admission, target_percent):
 THRESHOLDS = [70, 75, 80, 85, 90, 95]
 
 
-def exam_matrix(rd):
+def exam_matrix(rd_rounded):
     """Сколько баллов нужно на экзамене для каждого порога. None = недостижимо."""
     row = []
     for target in THRESHOLDS:
-        need = round(exam_needed(rd, target), 6)
+        need = round(exam_needed(rd_rounded, target), 6)
         if need > 100:
             row.append({"target": target, "need": None})
         else:
